@@ -1,0 +1,240 @@
+// lask-terraform — Terraform / OpenTofu CLI wrapper for Lask.
+//
+// Public API of the module (this file is the bare-name entry point).
+// Design rationale: doc/design.md. Usage: README.md.
+//
+// Common keyword parameters on every command function:
+//   --dir  root module directory, passed as -chdir (relative to the env's cwd)
+//   --env  execution environment (spec ch. 10); defaults to Docker image
+//          #docker("alpine/terragrunt:1.5.7")
+//   --bin  CLI binary; set "tofu" for OpenTofu
+//
+// All commands run non-interactively (-input=false) and without color.
+
+import { flag, opt, prefix_each, join_args, concat_all, count } from "./lib/args.lask"
+import { tfvars_arg, cleanup_tfvars } from "./lib/tfvars.lask"
+
+// Result of plan: changed reflects -detailed-exitcode (0 -> false, 2 -> true),
+// log is the human-readable plan text.
+type TfPlan = Record<changed: Bool, log: String>
+
+// Result of `output -json`: output name -> entry (see TfOutputEntry).
+type TfOutputs = Map<Any>
+
+// One entry of `output -json`. The field "type" collides with a Lask reserved
+// word, so access it as entry["type"].
+type TfOutputEntry = Record<sensitive: Bool, "type": Any, value: Any>
+
+version(--env: Environment = #docker("alpine/terragrunt:1.5.7"), --bin: String = "terraform"): String =
+  $[env] #{bin} version
+
+init(
+  --dir: String = ".",
+  --upgrade: Bool = false,
+  --reconfigure: Bool = false,
+  --backend_configs: Array<String> = [],
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String = do {
+  a = join_args(concat_all(
+    [flag(upgrade, "-upgrade"), flag(reconfigure, "-reconfigure")],
+    prefix_each(backend_configs, "-backend-config=")
+  ))
+  $[env] #{bin} -chdir=#{dir} init -input=false -no-color #{a}
+}
+
+validate(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String =
+  $[env] #{bin} -chdir=#{dir} validate -no-color
+
+// Rewrites files to canonical format; returns the list of changed files.
+fmt(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String =
+  $[env] #{bin} -chdir=#{dir} fmt -recursive
+
+// True when all files are already canonically formatted.
+fmt_check(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): Bool = do {
+  r = $*[env] #{bin} -chdir=#{dir} fmt -check -recursive
+  if (r.code == 0) { return true }
+  if (r.code == 3) { return false }
+  fail(error(r.code, r.stderr))
+}
+
+// Runs plan with -detailed-exitcode. Exit 0/2 become data (changed);
+// any other exit code fails with Error(code, stderr).
+// vars are written to a generated tfvars.json appended after var_files,
+// so vars win over file-supplied values.
+plan(
+  --dir: String = ".",
+  --vars: Map<Any> = {},
+  --var_files: Array<String> = [],
+  --targets: Array<String> = [],
+  --destroy: Bool = false,
+  --out: String = "",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): TfPlan = do {
+  vf = tfvars_arg(dir, env, vars)
+  a = join_args(concat_all(
+    [flag(destroy, "-destroy"), opt("out", out)],
+    prefix_each(var_files, "-var-file="),
+    prefix_each(targets, "-target="),
+    [vf]
+  ))
+  r = try {
+    $*[env] #{bin} -chdir=#{dir} plan -input=false -no-color -detailed-exitcode #{a}
+  } finally {
+    cleanup_tfvars(dir, env, vf)
+  }
+  if (r.code == 0) { return {changed: false, log: r.stdout} }
+  if (r.code == 2) { return {changed: true, log: r.stdout} }
+  fail(error(r.code, r.stderr))
+}
+
+// Applies changes with -auto-approve, or applies a saved plan file.
+// Terraform rejects variables/targets together with a saved plan, so the
+// combination fails fast here with a usage error.
+apply(
+  --dir: String = ".",
+  --vars: Map<Any> = {},
+  --var_files: Array<String> = [],
+  --targets: Array<String> = [],
+  --plan_file: String = "",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String = do {
+  if (plan_file != "" && count(keys(vars)) > 0) {
+    return fail(error(2, "apply: vars cannot be combined with plan_file"))
+  }
+  if (plan_file != "" && count(var_files) > 0) {
+    return fail(error(2, "apply: var_files cannot be combined with plan_file"))
+  }
+  if (plan_file != "" && count(targets) > 0) {
+    return fail(error(2, "apply: targets cannot be combined with plan_file"))
+  }
+  if (plan_file != "") {
+    return $[env] #{bin} -chdir=#{dir} apply -input=false -no-color #{plan_file}
+  }
+  vf = tfvars_arg(dir, env, vars)
+  a = join_args(concat_all(
+    prefix_each(var_files, "-var-file="),
+    prefix_each(targets, "-target="),
+    [vf]
+  ))
+  try {
+    $[env] #{bin} -chdir=#{dir} apply -input=false -no-color -auto-approve #{a}
+  } finally {
+    cleanup_tfvars(dir, env, vf)
+  }
+}
+
+// Destroys managed infrastructure. Requires an explicit auto_approve = true;
+// the default fails fast with a usage error.
+destroy(
+  --dir: String = ".",
+  --vars: Map<Any> = {},
+  --var_files: Array<String> = [],
+  --targets: Array<String> = [],
+  --auto_approve: Bool = false,
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String = do {
+  if (!auto_approve) {
+    return fail(error(2, "destroy requires auto_approve = true"))
+  }
+  vf = tfvars_arg(dir, env, vars)
+  a = join_args(concat_all(
+    prefix_each(var_files, "-var-file="),
+    prefix_each(targets, "-target="),
+    [vf]
+  ))
+  try {
+    $[env] #{bin} -chdir=#{dir} destroy -input=false -no-color -auto-approve #{a}
+  } finally {
+    cleanup_tfvars(dir, env, vf)
+  }
+}
+
+// All outputs as a map: output name -> {value, type, sensitive}.
+// CAUTION: sensitive values appear in plaintext (and in the relayed command log).
+outputs(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): TfOutputs = do {
+  raw = $[env] #{bin} -chdir=#{dir} output -json -no-color
+  decode_outputs(raw)
+}
+
+// Decodes a captured `output -json` string. Exposed for reuse with show_json etc.
+decode_outputs(raw: String): TfOutputs = cast(fromJson(raw))
+
+// Typed view of one entry of outputs().
+output_entry(os: TfOutputs, name: String): TfOutputEntry = cast(get(os, name))
+
+// The value of a single output. Fails with a diagnosable error for unknown names.
+output_value(
+  name: String,
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): Any = do {
+  os = outputs(dir = dir, env = env, bin = bin)
+  if (!hasKey(os, name)) {
+    return fail(error(3, concat("no such output: ", name)))
+  }
+  e = output_entry(os, name)
+  e.value
+}
+
+// Machine-readable state (or saved plan, when plan_file is given) as parsed JSON.
+show_json(
+  --dir: String = ".",
+  --plan_file: String = "",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): Any = do {
+  raw = $[env] #{bin} -chdir=#{dir} show -json -no-color #{plan_file}
+  fromJson(raw)
+}
+
+// Resource addresses tracked in state, one per element.
+state_list(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): Array<String> = do {
+  out = $[env] #{bin} -chdir=#{dir} state list
+  filter(split(trim(out), "\n"), \(s: String) -> s != "")
+}
+
+workspace_show(
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String = do {
+  out = $[env] #{bin} -chdir=#{dir} workspace show
+  trim(out)
+}
+
+// Selects a workspace; with create = true uses -or-create (Terraform >= 1.4).
+workspace_select(
+  name: String,
+  --create: Bool = false,
+  --dir: String = ".",
+  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --bin: String = "terraform"
+): String = do {
+  or_create = flag(create, "-or-create")
+  $[env] #{bin} -chdir=#{dir} workspace select #{or_create} #{name}
+}

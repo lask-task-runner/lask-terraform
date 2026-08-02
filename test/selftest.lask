@@ -1,0 +1,63 @@
+// Self-test for lask-terraform. Commands run in Docker by default
+// (#docker("alpine/terragrunt:1.5.7")); requires Docker available.
+// (For OpenTofu, pass both --bin tofu and a matching --env image.)
+//   lask run --module test/selftest.lask all
+// Commands run with the module's directory (test/) as cwd, so paths below
+// are relative to it.
+//
+// Exercises the full lifecycle against test/fixture (terraform_data only, so
+// init needs no registry access) and fails with a message on any mismatch.
+
+import * as tf from "../main.lask"
+import { count } from "../lib/args.lask"
+
+expect(cond: Bool, msg: String): String =
+  if (cond) { "ok" } else { fail(error(1, msg)) }
+
+as_string(v: Any): String = cast(v)
+
+all(--dir: String = "fixture", --bin: String = "terraform"): String = do {
+  teardown(dir = dir)
+  tf.init(dir = dir, bin = bin)
+  expect(tf.fmt_check(dir = dir, bin = bin), "fixture is not canonically formatted")
+  expect(tf.workspace_show(dir = dir, bin = bin) == "default", "expected default workspace")
+
+  p1 = tf.plan(dir = dir, bin = bin, vars = {message: "hello-lask"})
+  expect(p1.changed, "initial plan should report changes")
+
+  tf.apply(dir = dir, bin = bin, vars = {message: "hello-lask"})
+  p2 = tf.plan(dir = dir, bin = bin, vars = {message: "hello-lask"})
+  expect(!p2.changed, "plan after apply should report no changes")
+
+  expect(as_string(tf.output_value("message", dir = dir, bin = bin)) == "hello-lask",
+    "unexpected value for output 'message'")
+  expect(as_string(tf.output_value("secret", dir = dir, bin = bin)) == "s3cr3t",
+    "unexpected value for output 'secret'")
+  entry = tf.output_entry(tf.outputs(dir = dir, bin = bin), "secret")
+  expect(entry.sensitive, "output 'secret' should be marked sensitive")
+
+  listed = tf.state_list(dir = dir, bin = bin)
+  expect(count(filter(listed, \(x: String) -> x == "terraform_data.echo")) == 1,
+    "state should contain terraform_data.echo")
+
+  guard = try {
+    tf.destroy(dir = dir, bin = bin)
+    "guard-missed"
+  } catch (e) {
+    if (e.code == 2) { "guard-ok" } else { fail(e) }
+  }
+  expect(guard == "guard-ok", "destroy without auto_approve should fail with code 2")
+
+  tf.destroy(dir = dir, bin = bin, vars = {message: "hello-lask"}, auto_approve = true)
+  p3 = tf.plan(dir = dir, bin = bin, vars = {message: "hello-lask"})
+  expect(p3.changed, "plan after destroy should report changes again")
+
+  teardown(dir = dir)
+  "ok"
+}
+
+// Removes init/apply artifacts so runs are idempotent.
+teardown(--dir: String = "fixture"): String = do {
+  $* rm -rf #{dir}/.terraform #{dir}/.terraform.lock.hcl #{dir}/terraform.tfstate #{dir}/terraform.tfstate.backup
+  "cleaned"
+}

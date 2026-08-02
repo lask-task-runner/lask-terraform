@@ -1,0 +1,25 @@
+// Internal helpers for assembling Terraform CLI argument strings.
+// Pure functions only; no command execution here.
+
+// Returns s when cond holds, otherwise the empty string (dropped by join_args).
+flag(cond: Bool, s: String): String = if (cond) { s } else { "" }
+
+// Returns "-name=value", or "" when value is empty.
+opt(name: String, value: String): String =
+  if (value == "") { "" } else { "-#{name}=#{value}" }
+
+// Prefixes every element: prefix_each(["a"], "-target=") == ["-target=a"].
+prefix_each(xs: Array<String>, p: String): Array<String> =
+  map(xs, \(x: String) -> concat(p, x))
+
+// Joins the non-empty parts with single spaces.
+join_args(parts: Array<String>): String =
+  join(filter(parts, \(s: String) -> s != ""), " ")
+
+// Concatenates any number of string arrays in order.
+concat_all(...xss: Array<Array<String>>): Array<String> =
+  reduce(xss, [], \(acc: Array<String>, xs: Array<String>) -> concatArray(acc, xs))
+
+// Number of elements (the built-in length is String-only).
+count(xs: Array<String>): Number =
+  reduce(xs, 0, \(acc: Number, x: String) -> acc + 1)

@@ -1,0 +1,33 @@
+// Internal helpers for passing --vars to Terraform.
+//
+// Values are serialized with toJson and written to a generated *.tfvars.json
+// file inside the root module directory, in the same execution environment the
+// Terraform command will run in. An explicit -var-file argument (appended last,
+// so it wins over user-supplied var files) references it; the caller removes
+// the file in a finally block via cleanup_tfvars.
+//
+// NOTE: do not pass secrets through vars — the printf command line below is
+// subject to command-execution logging (spec 12.1/12.3).
+
+import { count } from "./args.lask"
+
+// Reserved file name; documented in the README. Fixed because Lask exposes no
+// randomness for unique names, so concurrent runs with vars on the same dir race.
+tfvars_file = "lask-terraform.generated.tfvars.json"
+
+// Writes vars (if any) into dir and returns the -var-file argument to append,
+// or "" when vars is empty and nothing was written.
+tfvars_arg(dir: String, env: Environment, vars: Map<Any>): String = do {
+  if (count(keys(vars)) == 0) { return "" }
+  quoted = replace(toJson(vars), "'", "'\\''")
+  $[env] printf '%s' '#{quoted}' > #{dir}/#{tfvars_file}
+  "-var-file=#{tfvars_file}"
+}
+
+// Removes the generated file when one was written (vf != "").
+// Uses $* so cleanup never masks the primary failure of the surrounding try.
+cleanup_tfvars(dir: String, env: Environment, vf: String): String =
+  if (vf == "") { "" } else {
+    $*[env] rm -f #{dir}/#{tfvars_file}
+    ""
+  }

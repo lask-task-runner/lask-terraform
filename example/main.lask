@@ -1,0 +1,47 @@
+// Example consumer tasks for lask-terraform.
+//
+// A real consumer project declares the dependency once:
+//   lask deps add terraform --git https://github.com/lask-task-runner/lask-terraform --rev v0.1.0
+// and imports it by name:
+//   import * as tf from "terraform"
+// Inside this repository the module is imported by relative path instead.
+//
+// Commands run with this module's directory (example/) as cwd, so --dir
+// defaults to the sibling "infra" tree. Run e.g.:
+//   lask run  --module example/main.lask deploy --version 1.2.3
+//   lask eval --module example/main.lask infra-plan
+
+import * as tf from "../main.lask"
+
+// True when the infrastructure differs from the desired version.
+infra_plan(
+  --version: String = "1.2.3",
+  --dir: String = "infra",
+  --bin: String = "terraform"
+): Bool = do {
+  tf.init(dir = dir, bin = bin)
+  p = tf.plan(dir = dir, bin = bin, vars = {app_version: version})
+  p.changed
+}
+
+// Applies the desired version and returns the deployed_version output.
+deploy(
+  --version: String = "1.2.3",
+  --dir: String = "infra",
+  --bin: String = "terraform"
+): String = do {
+  tf.init(dir = dir, bin = bin)
+  tf.apply(dir = dir, bin = bin, vars = {app_version: version})
+  as_string(tf.output_value("deployed_version", dir = dir, bin = bin))
+}
+
+teardown(
+  --version: String = "1.2.3",
+  --dir: String = "infra",
+  --bin: String = "terraform"
+): String = do {
+  tf.destroy(dir = dir, bin = bin, vars = {app_version: version}, auto_approve = true)
+  "destroyed"
+}
+
+as_string(v: Any): String = cast(v)
