@@ -1,6 +1,6 @@
 // Internal helpers for passing --vars to Terraform.
 //
-// Values are serialized with toJson and written to a generated *.tfvars.json
+// Values are serialized with to_json and written to a generated *.tfvars.json
 // file inside the root module directory, in the same execution environment the
 // Terraform command will run in. An explicit -var-file argument (appended last,
 // so it wins over user-supplied var files) references it; the caller removes
@@ -19,7 +19,7 @@ tfvars_file = "lask-terraform.generated.tfvars.json"
 // or "" when vars is empty and nothing was written.
 tfvars_arg(dir: String, env: Environment, vars: Map<Any>): String = do {
   if (count(keys(vars)) == 0) { return "" }
-  quoted = replace(toJson(vars), "'", "'\\''")
+  quoted = replace(to_json(vars), "'", "'\\''")
   $[env] printf '%s' '#{quoted}' > #{dir}/#{tfvars_file}
   "-var-file=#{tfvars_file}"
 }
