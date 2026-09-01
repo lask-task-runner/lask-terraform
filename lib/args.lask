@@ -18,7 +18,7 @@ join_args(parts: Array<String>): String =
 
 // Concatenates any number of string arrays in order.
 concat_all(...xss: Array<Array<String>>): Array<String> =
-  reduce(xss, [], \(acc: Array<String>, xs: Array<String>) -> concatArray(acc, xs))
+  reduce(xss, [], \(acc: Array<String>, xs: Array<String>) -> concat_array(acc, xs))
 
 // Number of elements (the built-in length is String-only).
 count(xs: Array<String>): Number =

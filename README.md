@@ -59,7 +59,7 @@ field `type` collides with a Lask reserved word — access it as `entry["type"]`
 
 ## Variables (`--vars`)
 
-`--vars: Map<Any>` is serialized with `toJson` and written to
+`--vars: Map<Any>` is serialized with `to_json` and written to
 `<dir>/lask-terraform.generated.tfvars.json` inside the target environment,
 referenced via an explicit `-var-file` appended **after** all `--var_files`
 (so `--vars` wins), and deleted in a `finally` block.

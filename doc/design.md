@@ -153,7 +153,7 @@ destroy(--vars: Map<Any> = {},
 // explicitly opted in; then `destroy -input=false -no-color -auto-approve ...`.
 
 outputs(): TfOutputs
-// `output -json` |> fromJson |> cast to Map<Any>.
+// `output -json` |> from_json |> cast to Map<Any>.
 
 decode_outputs(raw: String): TfOutputs
 output_entry(os: TfOutputs, name: String): TfOutputEntry
@@ -162,11 +162,11 @@ output_entry(os: TfOutputs, name: String): TfOutputEntry
 // top-level declarations — so the typed positions are function signatures.
 
 output_value(name: String): Any
-// outputs()[name].value, with a hasKey pre-check for a diagnosable
+// outputs()[name].value, with a has_key pre-check for a diagnosable
 // error(3, "no such output: <name>") instead of a bare E-RUNTIME-ACCESS.
 
 show_json(--plan_file: String = ""): Any
-// `show -json [<plan_file>]` |> fromJson. State when plan_file omitted.
+// `show -json [<plan_file>]` |> from_json. State when plan_file omitted.
 
 state_list(): Array<String>
 // `state list` stdout split into non-empty lines.
@@ -188,7 +188,7 @@ line.
 
 Instead, when `vars != {}` the module:
 
-1. Serializes `vars` with `toJson` (JSON is what `*.tfvars.json` expects, and
+1. Serializes `vars` with `to_json` (JSON is what `*.tfvars.json` expects, and
    `Map<Any>` values are exactly the directly-serializable types, spec 4.5).
 2. Writes it to a fixed, documented path inside the root module directory:
    `<dir>/lask-terraform.generated.tfvars.json`, using
@@ -222,7 +222,7 @@ Known limitations (documented in the README):
 | `plan`/`fmt_check` detailed exit codes (2 / 3) | Mapped to data (`changed` / `Bool`), not errors — these are results, not failures. |
 | Any other non-zero exit | `fail(error(code, stderr))` (for `$*`-based calls) or the equivalent built-in failure of `$` (spec 6.6). Uncaught, the Terraform exit code becomes the `lask` process exit code (spec 11.3) — CI semantics are preserved for free. |
 | Misuse (e.g. `apply(plan_file=..., vars=...)`, `destroy` without opt-in) | `fail(error(2, <message>))` before running anything. |
-| Missing output name | `fail(error(3, "no such output: <name>"))` after `hasKey` check. |
+| Missing output name | `fail(error(3, "no such output: <name>"))` after `has_key` check. |
 | Environment resolution / SSH / Docker daemon failures | Left to the runtime (`E-IO-ENV-RESOLVE` etc., spec 10.4, ch. 14); the module adds nothing. |
 
 Guards use the early-return form so the happy path stays flat (spec 6.5):
