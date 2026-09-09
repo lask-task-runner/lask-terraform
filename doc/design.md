@@ -20,8 +20,9 @@ decisions that follow from the Lask language specification
   caught with `try`/`catch` or propagated to the process exit code unchanged.
 - Make `plan -detailed-exitcode` a first-class typed result (`changed: Bool`)
   instead of an error.
-- Work in any Lask execution environment (`#local`, `#docker(...)`,
-  `#env(...)`; spec ch. 10) via a pass-through `--env` keyword parameter.
+- Work in any Lask execution environment (`#local`, `#docker(...)` — the
+  only two kinds Lask supports, spec 10.2) via a pass-through `--env`
+  keyword parameter.
 - Support OpenTofu by parameterizing the binary name (`--bin = "tofu"`).
 
 ## 2. Non-Goals
@@ -193,8 +194,9 @@ Instead, when `vars != {}` the module:
 2. Writes it to a fixed, documented path inside the root module directory:
    `<dir>/lask-terraform.generated.tfvars.json`, using
    `printf '%s' '<escaped-json>' > <path>` in the **same** `env` (the file must
-   exist where Terraform runs — local, container, or remote host). Single
-   quotes in the payload are escaped as `'\''`.
+   exist where Terraform runs — on the host for `#local`, inside the
+   container for `#docker(...)`). Single quotes in the payload are escaped
+   as `'\''`.
 3. Appends `-var-file=lask-terraform.generated.tfvars.json` **after** all user
    `--var_files`, so `--vars` wins over file-supplied values (Terraform's
    last-one-wins rule) — an explicit, documented precedence.
@@ -223,7 +225,7 @@ Known limitations (documented in the README):
 | Any other non-zero exit | `fail(error(code, stderr))` (for `$*`-based calls) or the equivalent built-in failure of `$` (spec 6.6). Uncaught, the Terraform exit code becomes the `lask` process exit code (spec 11.3) — CI semantics are preserved for free. |
 | Misuse (e.g. `apply(plan_file=..., vars=...)`, `destroy` without opt-in) | `fail(error(2, <message>))` before running anything. |
 | Missing output name | `fail(error(3, "no such output: <name>"))` after `has_key` check. |
-| Environment resolution / SSH / Docker daemon failures | Left to the runtime (`E-IO-ENV-RESOLVE` etc., spec 10.4, ch. 14); the module adds nothing. |
+| Environment resolution / Docker daemon failures | Left to the runtime (`E-IO-ENV-RESOLVE` etc., spec 10.4, ch. 14); the module adds nothing. |
 
 Guards use the early-return form so the happy path stays flat (spec 6.5):
 
@@ -295,8 +297,8 @@ four functions (`plan`, `apply`, `destroy`, and nothing else touches vars).
   logs. The README must state: supply secrets as ambient `TF_VAR_*`/provider
   environment variables of the target environment (spec 10.6), and treat
   `outputs()`/`output_value` on sensitive outputs as log-visible.
-- The module never stores credentials; `environments.lask.json` rules
-  (spec 10.3) and SSH settings (spec 10.9, 11.1) apply unchanged.
+- The module never stores credentials; Lask's environment-variable rules
+  (spec 10.6) and permission boundary (spec 10.7) apply unchanged.
 - `destroy` requires an explicit `auto_approve = true`; the default fails fast.
 - Everything else is inherited: command start/exit/output events give full
   audit visibility of every Terraform invocation with zero module code.
@@ -309,8 +311,10 @@ four functions (`plan`, `apply`, `destroy`, and nothing else touches vars).
   wrapped surface.
 - Docker environments must use an image containing the Terraform binary and
   must have the project tree visible at the container cwd (mount semantics are
-  implementation-defined, spec 10.5); `remote` requires the binary and the
-  checked-out tree on the host. The module only forwards `env`.
+  implementation-defined, spec 10.5); `#local` requires the binary and the
+  checked-out tree on the host running Lask. The module only forwards `env`,
+  and `local`/`docker` are the only environment kinds Lask resolves (spec
+  10.2) — there is no remote/SSH environment kind to forward to.
 
 ## 10. Testing Plan
 

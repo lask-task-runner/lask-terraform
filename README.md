@@ -32,7 +32,7 @@ Every command function takes these keyword parameters:
 | Parameter | Default | Meaning |
 |---|---|---|
 | `--dir` | `"."` | Terraform root module directory (passed as `-chdir`) |
-| `--env` | `#docker("alpine/terragrunt:1.5.7")` | Lask execution environment (`#docker(...)`, `#local`, `#env(...)`, ...) |
+| `--env` | `#docker("alpine/terragrunt:1.5.7")` | Lask execution environment: `#docker(...)` or `#local` (the only two kinds Lask supports) |
 | `--bin` | `"terraform"` | CLI binary; use `"tofu"` for OpenTofu |
 
 All commands run with `-input=false` and `-no-color`; nothing ever prompts.
@@ -85,11 +85,12 @@ values in plaintext) are visible in logs. Supply secrets as ambient
 
 By default, commands run in `#docker("alpine/terragrunt:1.5.7")`.
 
-`--env` is forwarded as-is, so you can override with `#local`, another
-`#docker(...)` image, or `#env("...")`. For `#docker(...)` the image must
-contain the selected CLI binary (`terraform` / `tofu`) and the project tree
-must be visible at the container cwd; for `#env("...")` (remote) the binary
-and a checkout must exist on the host.
+`--env` is forwarded as-is, so you can override with `#local` or another
+`#docker(...)` image — `local` and `docker` are the only two execution
+environment kinds Lask supports. For `#docker(...)` the image must contain
+the selected CLI binary (`terraform` / `tofu`) and the project tree must be
+visible at the container cwd; for `#local` the binary must be on the host
+running Lask.
 
 ## Development
 
