@@ -6,7 +6,7 @@
 // Common keyword parameters on every command function:
 //   --dir  root module directory, passed as -chdir (relative to the env's cwd)
 //   --env  execution environment (spec ch. 10); defaults to Docker image
-//          #docker("alpine/terragrunt:1.5.7")
+//          #docker("hashicorp/terraform:1.16.2")
 //   --bin  CLI binary; set "tofu" for OpenTofu
 //
 // All commands run non-interactively (-input=false) and without color.
@@ -25,7 +25,7 @@ type TfOutputs = Map<Any>
 // word, so access it as entry["type"].
 type TfOutputEntry = Record<sensitive: Bool, "type": Any, value: Any>
 
-version(--env: Environment = #docker("alpine/terragrunt:1.5.7"), --bin: String = "terraform"): String =
+version(--env: Environment = #docker("hashicorp/terraform:1.16.2"), --bin: String = "terraform"): String =
   $[env] #{bin} version
 
 init(
@@ -33,7 +33,7 @@ init(
   --upgrade: Bool = false,
   --reconfigure: Bool = false,
   --backend_configs: Array<String> = [],
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String = do {
   a = join_args(concat_all(
@@ -45,7 +45,7 @@ init(
 
 validate(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String =
   $[env] #{bin} -chdir=#{dir} validate -no-color
@@ -53,7 +53,7 @@ validate(
 // Rewrites files to canonical format; returns the list of changed files.
 fmt(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String =
   $[env] #{bin} -chdir=#{dir} fmt -recursive
@@ -61,7 +61,7 @@ fmt(
 // True when all files are already canonically formatted.
 fmt_check(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): Bool = do {
   r = $*[env] #{bin} -chdir=#{dir} fmt -check -recursive
@@ -81,7 +81,7 @@ plan(
   --targets: Array<String> = [],
   --destroy: Bool = false,
   --out: String = "",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): TfPlan = do {
   vf = tfvars_arg(dir, env, vars)
@@ -110,7 +110,7 @@ apply(
   --var_files: Array<String> = [],
   --targets: Array<String> = [],
   --plan_file: String = "",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String = do {
   if (plan_file != "" && count(keys(vars)) > 0) {
@@ -146,7 +146,7 @@ destroy(
   --var_files: Array<String> = [],
   --targets: Array<String> = [],
   --auto_approve: Bool = false,
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String = do {
   if (!auto_approve) {
@@ -169,7 +169,7 @@ destroy(
 // CAUTION: sensitive values appear in plaintext (and in the relayed command log).
 outputs(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): TfOutputs = do {
   raw = $[env] #{bin} -chdir=#{dir} output -json -no-color
@@ -186,7 +186,7 @@ output_entry(os: TfOutputs, name: String): TfOutputEntry = cast(get(os, name))
 output_value(
   name: String,
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): Any = do {
   os = outputs(dir = dir, env = env, bin = bin)
@@ -201,7 +201,7 @@ output_value(
 show_json(
   --dir: String = ".",
   --plan_file: String = "",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): Any = do {
   raw = $[env] #{bin} -chdir=#{dir} show -json -no-color #{plan_file}
@@ -211,7 +211,7 @@ show_json(
 // Resource addresses tracked in state, one per element.
 state_list(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): Array<String> = do {
   out = $[env] #{bin} -chdir=#{dir} state list
@@ -220,7 +220,7 @@ state_list(
 
 workspace_show(
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String = do {
   out = $[env] #{bin} -chdir=#{dir} workspace show
@@ -232,7 +232,7 @@ workspace_select(
   name: String,
   --create: Bool = false,
   --dir: String = ".",
-  --env: Environment = #docker("alpine/terragrunt:1.5.7"),
+  --env: Environment = #docker("hashicorp/terraform:1.16.2"),
   --bin: String = "terraform"
 ): String = do {
   or_create = flag(create, "-or-create")

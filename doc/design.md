@@ -80,7 +80,7 @@ Every command function takes these keyword parameters (defaults shown):
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `--dir` | `String` | `"."` | Terraform root module directory, passed as `-chdir=<dir>`. Relative to the environment's cwd (spec 10.5); for `#local` the current implementation uses the executed module's base directory, so consumer defaults should be module-relative. |
-| `--env` | `Environment` | `#docker("alpine/terragrunt:1.5.7")` | Execution environment for the command (spec ch. 10). |
+| `--env` | `Environment` | `#docker("hashicorp/terraform:1.16.2")` | Execution environment for the command (spec ch. 10). |
 | `--bin` | `String` | `"terraform"` | CLI binary; set `"tofu"` for OpenTofu. |
 
 Making `env` a keyword parameter (never positional) matters for two reasons:

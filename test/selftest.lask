@@ -1,5 +1,5 @@
 // Self-test for lask-terraform. Commands run in Docker by default
-// (#docker("alpine/terragrunt:1.5.7")); requires Docker available.
+// (#docker("hashicorp/terraform:1.16.2")); requires Docker available.
 // (For OpenTofu, pass both --bin tofu and a matching --env image.)
 //   lask run --module test/selftest.lask all
 // Commands run with the module's directory (test/) as cwd, so paths below

@@ -32,7 +32,7 @@ Every command function takes these keyword parameters:
 | Parameter | Default | Meaning |
 |---|---|---|
 | `--dir` | `"."` | Terraform root module directory (passed as `-chdir`) |
-| `--env` | `#docker("alpine/terragrunt:1.5.7")` | Lask execution environment: `#docker(...)` or `#local` (the only two kinds Lask supports) |
+| `--env` | `#docker("hashicorp/terraform:1.16.2")` | Lask execution environment: `#docker(...)` or `#local` (the only two kinds Lask supports) |
 | `--bin` | `"terraform"` | CLI binary; use `"tofu"` for OpenTofu |
 
 All commands run with `-input=false` and `-no-color`; nothing ever prompts.
@@ -83,7 +83,7 @@ values in plaintext) are visible in logs. Supply secrets as ambient
 
 ## Environments
 
-By default, commands run in `#docker("alpine/terragrunt:1.5.7")`.
+By default, commands run in `#docker("hashicorp/terraform:1.16.2")`.
 
 `--env` is forwarded as-is, so you can override with `#local` or another
 `#docker(...)` image — `local` and `docker` are the only two execution
