@@ -11,6 +11,11 @@
 import * as tf from "../main.lask"
 import { count } from "../lib/args.lask"
 
+// teardown() removes artifacts on the host, where they were written.
+// Declaring rm says so; there is no default environment, so a command
+// naming none is a static error (spec 10.1).
+command "rm" on #local
+
 expect(cond: Bool, msg: String): String =
   if (cond) { "ok" } else { fail(error(1, msg)) }
 
